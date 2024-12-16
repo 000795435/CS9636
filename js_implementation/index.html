@@ -13,6 +13,23 @@
             border: 1px solid #ccc;
             margin-bottom: 10px;
         }
+
+        #login-section {
+            width: 200px;
+        }
+
+        #username-input {
+            width: 100%;
+        }
+
+        #password-input {
+            width: 100%;
+        }
+
+        #register-btn {
+            float: right;
+            margin-right: -8px;
+        }
     </style>
 </head>
 
@@ -23,6 +40,7 @@
         <input type="password" id="password-input" placeholder="password" />
         <br />
         <button id="login-btn">Log In</button>
+        <button id="register-btn">Register</button>
         <br />
         <div id="login-info-section"></div>
     </div>
@@ -62,6 +80,12 @@
                 const message = event.data;
                 appendMessage('Server', message);  // Display the message with "Server" as the sender
             };
+
+            // Go back to log in page when connection fails
+            ws.onerror = function (event) {
+                loginInfoSection.style.display = 'block';
+                chatSection.style.display = 'none';
+            }
 
             // Send message to the server
             function sendMessage() {
@@ -149,6 +173,66 @@
                 return;
             }
 
+        });
+
+        // Add event listener for login form button to perform register
+        document.getElementById('register-btn').addEventListener('click', async function () {
+            let username_text = document.getElementById('username-input').value;
+            let password_text = document.getElementById('password-input').value;
+
+            if (username_text === '' || password_text === '') {
+                let msg = document.createElement('h3');
+                msg.innerText = 'Please fill username and password to register!';
+                msg.style.color = 'red';
+
+                let infoSection = document.getElementById('login-info-section');
+                infoSection.innerHTML = '';
+                infoSection.appendChild(msg);
+
+                return;
+            }
+
+            let response = await fetch("http://localhost:5000/register", {
+                method: "POST",
+                body: JSON.stringify({
+                    username: username_text,
+                    password: password_text
+                }),
+                headers: {
+                    "Content-type": "application/json; charset=UTF-8"
+                }
+            });
+
+            let data = await response.json();
+            if (data.success) {
+                let msg = document.createElement('h3');
+                msg.innerText = 'Register successfully!';
+                msg.style.color = 'green';
+
+                let infoSection = document.getElementById('login-info-section');
+                infoSection.innerHTML = '';
+                infoSection.appendChild(msg);
+
+                document.getElementById('username-input').value = '';
+                document.getElementById('password-input').value = '';
+
+                return;
+
+
+            } else {
+                let msg = document.createElement('h3');
+                msg.innerText = 'Register fail, please select another username and try again!';
+                msg.style.color = 'red';
+
+                let infoSection = document.getElementById('login-info-section');
+                infoSection.innerHTML = '';
+                infoSection.appendChild(msg);
+
+                document.getElementById('username-input').value = '';
+                document.getElementById('password-input').value = '';
+
+                return;
+            }
         });
     </script>
 </body>
