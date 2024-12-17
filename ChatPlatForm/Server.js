@@ -7,6 +7,7 @@ const User = require('./User');
 const bcrypt = require('bcryptjs');
 const mysql = require('mysql2');
 
+
 // Create a connection to the database
 const db = mysql.createConnection({
     host: 'localhost', // The host of your MySQL server
@@ -23,6 +24,7 @@ db.connect((err) => {
     }
     console.log('Connected to the MySQL database');
 });
+
 
 // Initialize Express app
 const app = express();
@@ -72,6 +74,7 @@ wss.on('connection', (ws, req) => {
             return;
         }
 
+
         ws.send(JSON.stringify({
             sender: 'Server',
             message: 'Here is your chat history:',
@@ -95,6 +98,7 @@ wss.on('connection', (ws, req) => {
             const friends = Array.isArray(friendResults)
                 ? friendResults.map(friend => friend.username)
                 : [];
+
 
             if (!Array.isArray(friends)) {
                 console.error('Friends list is not an array!!!!', friends); // Log the incorrect format
@@ -156,65 +160,67 @@ wss.on('connection', (ws, req) => {
                     }));
                 }
             } else if (action === 'addFriend') {
-                    // Ensure the friend exists
-                    db.query('SELECT * FROM users WHERE username = ?', [friendUsername], (err, friendResults) => {
-                        if (err) {
-                            return ws.send(JSON.stringify({ sender: 'Server', message: 'Database error' }));
-                        }
 
-                        if (friendResults.length === 0) {
-                            return ws.send(JSON.stringify({
-                                sender: 'Server',
-                                message: `User ${friendUsername} does not exist.`
-                            }));
-                        }
-                        if (!users[friendUsername]) {
-                            users[friendUsername] = new User(friendUsername, []);  // Initialize with an empty friends array
-                        }
-                        // Add the friend to both users' friend lists
-                        db.query(
-                           'INSERT INTO friends (user_id, friend_id) SELECT (SELECT id FROM users WHERE username = ?), (SELECT id FROM users WHERE username = ?);',
-                            [friendUsername, username],
-                            (err) => {
-                                if (err) {
-                                    return ws.send(JSON.stringify({ sender: 'Server', message: 'Error adding friend' }));
-                                }
-                            }
-                        );
+                // Ensure the friend exists
+                db.query('SELECT * FROM users WHERE username = ?', [friendUsername], (err, friendResults) => {
+                    if (err) {
+                        return ws.send(JSON.stringify({ sender: 'Server', message: 'Database error' }));
+                    }
 
-                        db.query(
-                            'INSERT INTO friends (user_id, friend_id) SELECT (SELECT id FROM users WHERE username = ?), (SELECT id FROM users WHERE username = ?);',
-                            [username, friendUsername],
-                            (err) => {
-                                if (err) {
-                                    return ws.send(JSON.stringify({ sender: 'Server', message: 'Error adding friend' }));
-                                }
-                            }
-                        );
-
-                        user.friends.push(friendUsername);
-                        users[friendUsername].friends.push(username);
-
-                        // Send the updated friends list to both users
-                        const updatedFriendsList = user.friends;
-
-                        // Send the updated friend list to the user who added the friend
-                        ws.send(JSON.stringify({
+                    if (friendResults.length === 0) {
+                        return ws.send(JSON.stringify({
                             sender: 'Server',
-                            message: `${friendUsername} added as a friend.`,
-                            friends: updatedFriendsList
+                            message: `User ${friendUsername} does not exist.`
                         }));
-
-                        // Send the updated friend list to the friend who was added
-                        if (clients[friendUsername]) {
-                            clients[friendUsername].send(JSON.stringify({
-                                sender: 'Server',
-                                message: `${username} added you as a friend.`,
-                                friends: users[friendUsername].friends
-                            }));
+                    }
+                    if (!users[friendUsername]) {
+                        users[friendUsername] = new User(friendUsername, []);  // Initialize with an empty friends array
+                    }
+                    // Add the friend to both users' friend lists
+                    db.query(
+                        'INSERT INTO friends (user_id, friend_id) SELECT (SELECT id FROM users WHERE username = ?), (SELECT id FROM users WHERE username = ?);',
+                        [friendUsername, username],
+                        (err) => {
+                            if (err) {
+                                return ws.send(JSON.stringify({ sender: 'Server', message: 'Error adding friend' }));
+                            }
                         }
-                    });
-}
+                    );
+
+                    db.query(
+                        'INSERT INTO friends (user_id, friend_id) SELECT (SELECT id FROM users WHERE username = ?), (SELECT id FROM users WHERE username = ?);',
+                        [username, friendUsername],
+                        (err) => {
+                            if (err) {
+                                return ws.send(JSON.stringify({ sender: 'Server', message: 'Error adding friend' }));
+                            }
+                        }
+                    );
+
+                    user.friends.push(friendUsername);
+                    users[friendUsername].friends.push(username);
+
+                    // Send the updated friends list to both users
+                    const updatedFriendsList = user.friends;
+
+                    // Send the updated friend list to the user who added the friend
+                    ws.send(JSON.stringify({
+                        sender: 'Server',
+                        message: `${friendUsername} added as a friend.`,
+                        friends: updatedFriendsList
+                    }));
+
+                    // Send the updated friend list to the friend who was added
+                    if (clients[friendUsername]) {
+                        clients[friendUsername].send(JSON.stringify({
+                            sender: 'Server',
+                            message: `${username} added you as a friend.`,
+                            friends: users[friendUsername].friends
+                        }));
+                    }
+                });
+            }
+
 
         } catch (error) {
             console.error('Error processing message:', error);
@@ -285,4 +291,6 @@ app.post('/login', (req, res) => {
 
         res.status(200).json({ success: true, message: 'Login successful!' });
     });
+
 });
+
