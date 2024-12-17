@@ -1,5 +1,3 @@
-const express = require('express');
-const cors = require('cors');
 const WebSocket = require('ws');
 const url = require('url');
 const bcrypt = require('bcryptjs');
@@ -36,25 +34,8 @@ const wss = new WebSocket.WebSocketServer({
     server: server
 });
 
-
 let clients = {};  // Store clients by their usernames
 let groups = {};  // Store groups with group name as key and group data as value
-
-// Temporary storing user's username && password
-let database_users = [
-    {
-        username: 'user1',
-        password: 'pass1'
-    },
-    {
-        username: 'user2',
-        password: 'pass2'
-    },
-    {
-        username: 'user3',
-        password: 'pass3'
-    }
-];
 
 // Helper function to generate a unique 8-digit username
 function generateUsername() {
@@ -64,6 +45,7 @@ function generateUsername() {
     } while (clients[username]);
     return username;
 }
+
 
 // Function to check if username and password given correctly in the database
 async function checkUserPass(username, password) {
@@ -182,11 +164,14 @@ app.post('/register', async (req, res) => {
 
 wss.on('connection', (ws, req) => {
     /*
+
+
     let username = generateUsername();  // Assign a unique 8-digit username to the client
     clients[username] = { ws, groups: [] };  // Store client with the generated username and group memberships
 
     // Notify the client of their unique username
     ws.send(`Welcome! Your unique username is ${username}. You can now send direct messages using /dm <username> <message>.`);
+
     */
 
 
@@ -200,6 +185,7 @@ wss.on('connection', (ws, req) => {
 
     // Notify the client with their username
     ws.send(`Welcome, ${username}! You can now send direct messages using /dm <username> <message>.`);
+
 
 
     // Handle incoming messages

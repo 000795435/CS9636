@@ -7,6 +7,7 @@ const User = require('./User');
 const bcrypt = require('bcryptjs');
 const mysql = require('mysql2');
 
+
 // Create a connection to the database
 const db = mysql.createConnection({
     host: 'localhost', // The host of your MySQL server
@@ -23,6 +24,7 @@ db.connect((err) => {
     }
     console.log('Connected to the MySQL database');
 });
+
 
 // Initialize Express app
 const app = express();
@@ -72,6 +74,7 @@ wss.on('connection', (ws, req) => {
             return;
         }
 
+
         ws.send(JSON.stringify({
             sender: 'Server',
             message: 'Here is your chat history:',
@@ -95,6 +98,7 @@ wss.on('connection', (ws, req) => {
             const friends = Array.isArray(friendResults)
                 ? friendResults.map(friend => friend.username)
                 : [];
+
 
             if (!Array.isArray(friends)) {
                 console.error('Friends list is not an array!!!!', friends); // Log the incorrect format
@@ -156,6 +160,7 @@ wss.on('connection', (ws, req) => {
                     }));
                 }
             } else if (action === 'addFriend') {
+
                 // Ensure the friend exists
                 db.query('SELECT * FROM users WHERE username = ?', [friendUsername], (err, friendResults) => {
                     if (err) {
@@ -215,6 +220,7 @@ wss.on('connection', (ws, req) => {
                     }
                 });
             }
+
 
         } catch (error) {
             console.error('Error processing message:', error);
@@ -285,4 +291,6 @@ app.post('/login', (req, res) => {
 
         res.status(200).json({ success: true, message: 'Login successful!' });
     });
+
 });
+
