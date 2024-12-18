@@ -1,13 +1,17 @@
+const express = require('express');
+const cors = require('cors');
 const WebSocket = require('ws');
 const url = require('url');
 const bcrypt = require('bcryptjs');
 const mysql = require('mysql2');
+const MLS = require('./MLS.js');
+
 
 // Create a connection to the database
 const db = mysql.createConnection({
     host: 'localhost', // The host of your MySQL server
     user: 'root', // Your MySQL username (usually 'root' for local development)
-    password: '', // Your MySQL password
+    password: 'rzwqx5r8eu', // Your MySQL password
     database: 'chat_app' // The name of your database (make sure it's 'chat_app' as created earlier)
 });
 
@@ -34,8 +38,25 @@ const wss = new WebSocket.WebSocketServer({
     server: server
 });
 
+const MLS_OBJ = new MLS(); // Store MLS object
 let clients = {};  // Store clients by their usernames
 let groups = {};  // Store groups with group name as key and group data as value
+
+// Temporary storing user's username && password
+let database_users = [
+    {
+        username: 'user1',
+        password: 'pass1'
+    },
+    {
+        username: 'user2',
+        password: 'pass2'
+    },
+    {
+        username: 'user3',
+        password: 'pass3'
+    }
+];
 
 // Helper function to generate a unique 8-digit username
 function generateUsername() {
@@ -164,14 +185,11 @@ app.post('/register', async (req, res) => {
 
 wss.on('connection', (ws, req) => {
     /*
-
-
     let username = generateUsername();  // Assign a unique 8-digit username to the client
     clients[username] = { ws, groups: [] };  // Store client with the generated username and group memberships
 
     // Notify the client of their unique username
     ws.send(`Welcome! Your unique username is ${username}. You can now send direct messages using /dm <username> <message>.`);
-
     */
 
 
@@ -185,7 +203,6 @@ wss.on('connection', (ws, req) => {
 
     // Notify the client with their username
     ws.send(`Welcome, ${username}! You can now send direct messages using /dm <username> <message>.`);
-
 
 
     // Handle incoming messages
@@ -239,10 +256,11 @@ wss.on('connection', (ws, req) => {
                 ws.send(`Group '${groupName}' already exists.`);
             } else {
 
-                await db.promise().query(
+                let create_group_result = await db.promise().query(
                     'INSERT INTO chat_groups (admin_user_id, group_name) SELECT (SELECT id FROM users WHERE username = ?), ?',
                     [username, groupName]);
                 await db.promise().query('INSERT INTO group_members (member_user_id, group_id) SELECT (SELECT id FROM users WHERE username = ?), (SELECT id FROM chat_groups WHERE group_name = ?)', [username, groupName]);
+                await MLS_OBJ.createGroup(create_group_result[0].insertId, [username]);
 
                 ws.send(`Group '${groupName}' created. You are the admin.`);
             }
@@ -307,6 +325,7 @@ wss.on('connection', (ws, req) => {
                 if (clients[newUser]) {
                     let group_id = result[0].id;
                     await db.promise().query('INSERT INTO group_members (member_user_id, group_id) SELECT (SELECT id FROM users WHERE username = ?), ?', [newUser, group_id]);
+                    await MLS_OBJ.addMember(group_id, newUser);
                     clients[newUser].send(`${username} has added you to the group '${groupName}'.`);
                     ws.send(`You have added ${newUser} to '${groupName}'.`);
                 } else {
@@ -362,6 +381,7 @@ wss.on('connection', (ws, req) => {
 
                     await db.promise().query('DELETE FROM group_members WHERE group_id = ? AND member_user_id = ?', [search_result[0].group_id, search_result[0].user_id]);
                     clients[userToRemove] && clients[userToRemove].send(`You have been removed from the group '${groupName}'.`);
+                    await MLS_OBJ.removeMember(search_result[0].group_id, userToRemove);
                     ws.send(`You have removed ${userToRemove} from '${groupName}'.`);
                 } else {
                     ws.send(`${userToRemove} is not a member of the group.`);
@@ -406,6 +426,7 @@ wss.on('connection', (ws, req) => {
                                                                 WHERE g.group_id = ?`, [search_result[0].group_id]))[0];
 
 
+                await MLS_OBJ.sendMessage(search_result[0].group_id, username, groupMessage);
                 for (let i = 0; i < users_to_send.length; i++) {
                     clients[users_to_send[i].username] && clients[users_to_send[i].username].send(`[Group ${groupName}] ${username}: ${groupMessage}`);
                 }
@@ -436,11 +457,12 @@ wss.on('connection', (ws, req) => {
         */
 
         // Debug with database
+        /*
         await db.promise().query(`DELETE FROM group_members
                                     WHERE member_user_id = (
-	                                SELECT id FROM users WHERE username = ?
+                                    SELECT id FROM users WHERE username = ?
         )`, [username]);
-
+        */
     });
 });
 
