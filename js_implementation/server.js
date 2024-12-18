@@ -6,6 +6,9 @@ const bcrypt = require('bcryptjs');
 const mysql = require('mysql2');
 const MLS = require('./MLS.js');
 
+const MLS_OBJ = new MLS(); // Store MLS object
+let clients = {};  // Store clients by their usernames
+let groups = {};  // Store groups with group name as key and group data as value
 
 // Create a connection to the database
 const db = mysql.createConnection({
@@ -16,12 +19,23 @@ const db = mysql.createConnection({
 });
 
 // Connect to MySQL
-db.connect((err) => {
+db.connect(async (err) => {
     if (err) {
         console.error('Error connecting to the database:', err);
         return;
     }
     console.log('Connected to the MySQL database');
+
+    // Initialize MLS groups
+    let group_result = (await db.promise().query('SELECT id FROM chat_groups', []))[0];
+    for (let i = 0; i < group_result.length; i++) {
+        await MLS_OBJ.createGroup(group_result[i].id, []);
+    }
+
+    let group_member_result = (await db.promise().query('SELECT g.group_id, u.username FROM users u INNER JOIN group_members g ON g.member_user_id = u.id', []))[0];
+    for (let i = 0; i < group_member_result.length; i++) {
+        await MLS_OBJ.addMember(group_member_result[i].group_id, group_member_result[i].username);
+    }
 });
 
 // const WebSocket = require('ws');
@@ -38,9 +52,6 @@ const wss = new WebSocket.WebSocketServer({
     server: server
 });
 
-const MLS_OBJ = new MLS(); // Store MLS object
-let clients = {};  // Store clients by their usernames
-let groups = {};  // Store groups with group name as key and group data as value
 
 // Temporary storing user's username && password
 let database_users = [
@@ -426,9 +437,15 @@ wss.on('connection', (ws, req) => {
                                                                 WHERE g.group_id = ?`, [search_result[0].group_id]))[0];
 
 
-                await MLS_OBJ.sendMessage(search_result[0].group_id, username, groupMessage);
+                let cipher_output = await MLS_OBJ.sendMessage(search_result[0].group_id, username, groupMessage);
+
                 for (let i = 0; i < users_to_send.length; i++) {
-                    clients[users_to_send[i].username] && clients[users_to_send[i].username].send(`[Group ${groupName}] ${username}: ${groupMessage}`);
+
+                    if (clients[users_to_send[i].username]) {
+                        let decrypt_message_output = await MLS_OBJ.receiveMessage(search_result[0].group_id, clients[users_to_send[i].username], cipher_output.ciphertext, cipher_output.enc);
+                        clients[users_to_send[i].username].send(`[Group ${groupName}] ${username}: ${decrypt_message_output}`);
+                    }
+
                 }
             } else {
                 ws.send(`${userToRemove} is not a member of the group.`);
